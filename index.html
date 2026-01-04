@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Passport Photo Converter — 3.5×4.5 cm JPEG ≤ 299 KB</title>
+  <style>
+    :root{
+      --bg:#f6f8fb;
+      --card:#ffffff;
+      --muted:#6b7280;
+      --accent:#4f46e5;
+      --success:#16a34a;
+      --danger:#ef4444;
+      --shadow: 0 6px 18px rgba(15,23,42,0.08);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#eef2ff 0%,var(--bg) 100%);color:#0f172a}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:36px}
+    .card{width:100%;max-width:980px;background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:22px}
+    .header{display:flex;gap:16px;align-items:center}
+    .logo{width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:20px}
+    h1{margin:0;font-size:20px}
+    p.lead{margin:4px 0 0;color:var(--muted);font-size:13px}
+    .controls{display:flex;gap:12px;align-items:center;margin-top:18px;flex-wrap:wrap}
+    .btn{
+      background:var(--accent);color:white;border:none;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:600;
+      display:inline-flex;gap:8px;align-items:center;
+    }
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .secondary{background:#eef2ff;color:var(--accent);border:1px solid rgba(79,70,229,0.08)}
+    .select, .info {padding:8px 10px;border-radius:10px;border:1px solid #e6e9ef;background:#fff}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
+    .panel{background:#fbfdff;border-radius:10px;padding:12px;border:1px solid #eef2ff;min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .panel h3{margin:0 0 8px;font-size:14px}
+    .preview-img{max-width:100%;max-height:160px;border-radius:8px;object-fit:contain;border:1px solid #e6eefb;background:white;padding:6px}
+    .status{margin-top:12px;color:var(--muted);font-size:13px}
+    .meta{margin-top:8px;color:var(--muted);font-size:13px}
+    .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+    .small{font-size:12px;color:var(--muted)}
+    .footer{margin-top:18px;border-top:1px dashed #eef2ff;padding-top:12px;display:flex;justify-content:space-between;align-items:center}
+    .badge{background:#eef2ff;color:var(--accent);padding:6px 8px;border-radius:999px;font-weight:600;font-size:12px}
+    .spinner{width:18px;height:18px;border-radius:50%;border:3px solid rgba(0,0,0,0.08);border-top-color:var(--accent);animation:spin 1s linear infinite;display:inline-block}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @media (max-width:880px){ .grid{grid-template-columns:1fr; } .actions{justify-content:flex-start} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" role="main">
+      <div class="header">
+        <div class="logo">PC</div>
+        <div>
+          <h1>Passport Photo Converter</h1>
+          <p class="lead">Convert any image to <strong>3.5 × 4.5 cm</strong> JPEG and compress to ≤ <strong>299 KB</strong>.</p>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <div class="badge">Static • Client-side</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <input id="fileInput" type="file" accept="image/*" style="display:none" />
+        <button id="chooseBtn" class="btn"><span>📁</span> Choose Image</button>
+
+        <div style="display:flex;gap:8px;align-items:center">
+          <label class="small" for="dpiSelect">DPI</label>
+          <select id="dpiSelect" class="select" aria-label="DPI">
+            <option value="72">72</option>
+            <option value="150">150</option>
+            <option value="300" selected>300 (print)</option>
+            <option value="600">600</option>
+          </select>
+        </div>
+
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="info small">Target: <strong>3.5 × 4.5 cm</strong></div>
+          <div class="info small">Max input: <strong>10 MB</strong></div>
+        </div>
+
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <button id="downloadBtn" class="btn secondary" disabled>⬇ Download JPEG</button>
+          <button id="resetBtn" class="btn secondary" style="display:none">Reset</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <h3>Original Preview</h3>
+          <div id="origContainer" style="width:100%;display:flex;align-items:center;justify-content:center;flex-direction:column">
+            <div id="origPlaceholder" class="small">No image selected</div>
+            <img id="origImg" class="preview-img" style="display:none" alt="Original preview" />
+            <div id="origMeta" class="meta" style="display:none"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Result Preview</h3>
+          <div id="resultContainer" style="width:100%;display:flex;align-items:center;justify-content:center;flex-direction:column">
+            <div id="resultPlaceholder" class="small">No result yet</div>
+            <img id="resultImg" class="preview-img" style="display:none" alt="Result preview" />
+            <div id="resultMeta" class="meta" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="status" id="status">Ready</div>
+
+      <div class="actions">
+        <div id="progress" style="display:flex;align-items:center;gap:8px"></div>
+      </div>
+
+      <div class="footer">
+        <div class="small">Tip: choose 300 DPI for print; choose 150 or 72 for smaller files.</div>
+        <div class="small">Made for GitHub Pages • Client-side only</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/*
+  Client-side image converter:
+  - If input > 10 MB, downscale to safe working size (maxDimension)
+  - Resize to target pixels (3.5cm x 4.5cm at chosen DPI)
+  - Compress to <= 299 KB using binary search on JPEG quality
+  - Provide preview and download
+*/
+
+const fileInput = document.getElementById('fileInput');
+const chooseBtn = document.getElementById('chooseBtn');
+const downloadBtn = document.getElementById('downloadBtn');
+const resetBtn = document.getElementById('resetBtn');
+const dpiSelect = document.getElementById('dpiSelect');
+
+const origImg = document.getElementById('origImg');
+const origPlaceholder = document.getElementById('origPlaceholder');
+const origMeta = document.getElementById('origMeta');
+
+const resultImg = document.getElementById('resultImg');
+const resultPlaceholder = document.getElementById('resultPlaceholder');
+const resultMeta = document.getElementById('resultMeta');
+
+const statusEl = document.getElementById('status');
+const progressEl = document.getElementById('progress');
+
+const MAX_INPUT_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_WORKING_DIM = 2000; // px - safe working dimension
+const TARGET_KB = 299;
+const TARGET_BYTES = TARGET_KB * 1024;
+const TARGET_CM_W = 3.5;
+const TARGET_CM_H = 4.5;
+
+let finalBlob = null;
+let finalUrl = null;
+
+chooseBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', async (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  resetState();
+  await handleFile(f);
+});
+
+resetBtn.addEventListener('click', () => {
+  resetState(true);
+});
+
+downloadBtn.addEventListener('click', () => {
+  if (!finalBlob) return;
+  const a = document.createElement('a');
+  const url = URL.createObjectURL(finalBlob);
+  a.href = url;
+  a.download = 'converted.jpg';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+function setStatus(text, busy=false) {
+  statusEl.textContent = text;
+  progressEl.innerHTML = busy ? '<span class="spinner"></span>' : '';
+}
+
+function resetState(full=false) {
+  setStatus('Ready');
+  progressEl.innerHTML = '';
+  origImg.style.display = 'none';
+  origPlaceholder.style.display = 'block';
+  origMeta.style.display = 'none';
+  resultImg.style.display = 'none';
+  resultPlaceholder.style.display = 'block';
+  resultMeta.style.display = 'none';
+  downloadBtn.disabled = true;
+  finalBlob = null;
+  if (finalUrl) { URL.revokeObjectURL(finalUrl); finalUrl = null; }
+  if (full) fileInput.value = '';
+  resetBtn.style.display = 'none';
+}
+
+function bytesToKb(n){ return (n/1024).toFixed(1) + ' KB'; }
+function cmToPx(cm, dpi){ return Math.round((cm / 2.54) * dpi); }
+
+// Read file as data URL for preview and as ArrayBuffer for processing
+function readFileAsDataURL(file){
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.onerror = rej;
+    fr.readAsDataURL(file);
+  });
+}
+function readFileAsArrayBuffer(file){
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.onerror = rej;
+    fr.readAsArrayBuffer(file);
+  });
+}
+
+// Create Image element from data URL
+function loadImageFromDataURL(dataURL){
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = rej;
+    img.src = dataURL;
+  });
+}
+
+// Draw image to canvas with given width/height
+function drawToCanvas(img, width, height){
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  // Fill white background for JPEG (avoid transparency)
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0,0,width,height);
+  // Compute aspect fit to center crop if needed
+  // We want exact target dimensions; we'll fit image preserving aspect ratio and center it
+  const srcW = img.width, srcH = img.height;
+  const srcRatio = srcW / srcH;
+  const dstRatio = width / height;
+  let sx=0, sy=0, sWidth=srcW, sHeight=srcH;
+  if (srcRatio > dstRatio) {
+    // source is wider -> crop sides
+    sWidth = Math.round(srcH * dstRatio);
+    sx = Math.round((srcW - sWidth) / 2);
+  } else {
+    // source is taller -> crop top/bottom
+    sHeight = Math.round(srcW / dstRatio);
+    sy = Math.round((srcH - sHeight) / 2);
+  }
+  ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, width, height);
+  return canvas;
+}
+
+// Convert canvas to Blob (JPEG) with quality
+function canvasToBlob(canvas, quality){
+  return new Promise((res) => {
+    canvas.toBlob((b) => res(b), 'image/jpeg', quality);
+  });
+}
+
+// Downscale very large images to safe working size to reduce CPU/time
+async function downscaleLargeIfNeeded(arrayBuffer){
+  // decode to dataURL for preview
+  const blob = new Blob([arrayBuffer]);
+  const dataURL = await readFileAsDataURL(blob);
+  const img = await loadImageFromDataURL(dataURL);
+  origImg.src = dataURL;
+  origImg.style.display = 'block';
+  origPlaceholder.style.display = 'none';
+  origMeta.style.display = 'block';
+  origMeta.textContent = `Original: ${img.width}×${img.height} • ${bytesToKb(blob.size)}`;
+
+  if (blob.size <= MAX_INPUT_BYTES && Math.max(img.width, img.height) <= MAX_WORKING_DIM) {
+    // no downscale needed
+    return blob;
+  }
+
+  setStatus('Large file detected. Downscaling for safe processing...', true);
+
+  // compute scale to fit within MAX_WORKING_DIM
+  const maxDim = MAX_WORKING_DIM;
+  const scale = maxDim / Math.max(img.width, img.height);
+  const newW = Math.round(img.width * scale);
+  const newH = Math.round(img.height * scale);
+
+  // draw and encode at high quality to preserve visual fidelity
+  const canvas = drawToCanvas(img, newW, newH);
+  const downBlob = await canvasToBlob(canvas, 0.92);
+  setStatus(`Downscaled to ${newW}×${newH} • ${bytesToKb(downBlob.size)}`, false);
+  // update preview to downscaled
+  const downUrl = URL.createObjectURL(downBlob);
+  origImg.src = downUrl;
+  origMeta.textContent = `Working: ${newW}×${newH} • ${bytesToKb(downBlob.size)}`;
+  return downBlob;
+}
+
+// Resize to target cm dimensions (pixels) and return canvas
+async function resizeToTargetCanvas(blob, dpi){
+  setStatus('Decoding and resizing to target dimensions...', true);
+  const dataURL = await readFileAsDataURL(blob);
+  const img = await loadImageFromDataURL(dataURL);
+  const targetW = cmToPx(TARGET_CM_W, dpi);
+  const targetH = cmToPx(TARGET_CM_H, dpi);
+  const canvas = drawToCanvas(img, targetW, targetH);
+  return { canvas, targetW, targetH };
+}
+
+// Binary search for JPEG quality that yields <= TARGET_BYTES
+async function compressToTarget(canvas){
+  setStatus(`Compressing to ≤ ${TARGET_KB} KB...`, true);
+  const maxBytes = TARGET_BYTES;
+  // quick check at high quality
+  let highQ = 0.95;
+  let lowQ = 0.10;
+  let bestBlob = null;
+  let bestQ = lowQ;
+
+  const highBlob = await canvasToBlob(canvas, highQ);
+  if (highBlob.size <= maxBytes) {
+    bestBlob = highBlob;
+    bestQ = highQ;
+    setStatus(`Target reached at quality ${(highQ*100).toFixed(0)}`, false);
+    return { blob: bestBlob, quality: bestQ };
+  }
+
+  // binary search
+  let low = lowQ, high = highQ;
+  for (let i=0;i<10;i++){
+    const mid = (low + high) / 2;
+    setStatus(`Trying quality ${(mid*100).toFixed(0)}%...`, true);
+    const b = await canvasToBlob(canvas, mid);
+    if (b.size <= maxBytes) {
+      bestBlob = b;
+      bestQ = mid;
+      low = mid + 0.005; // try higher quality
+    } else {
+      high = mid - 0.005; // need lower quality
+    }
+    if (low > high) break;
+  }
+
+  // fallback linear reduction if binary search didn't find acceptable
+  if (!bestBlob || bestBlob.size > maxBytes) {
+    setStatus('Final fallback: stepwise quality reduction...', true);
+    for (let q = 0.9; q >= 0.10; q -= 0.05) {
+      const b = await canvasToBlob(canvas, q);
+      if (b.size <= maxBytes) {
+        bestBlob = b;
+        bestQ = q;
+        break;
+      }
+    }
+  }
+
+  if (!bestBlob) {
+    // as last resort return lowest quality
+    const b = await canvasToBlob(canvas, 0.10);
+    bestBlob = b;
+    bestQ = 0.10;
+  }
+
+  setStatus(`Finished: ${bytesToKb(bestBlob.size)} (quality ${(bestQ*100).toFixed(0)}%)`, false);
+  return { blob: bestBlob, quality: bestQ };
+}
+
+// Main handler
+async function handleFile(file){
+  try {
+    setStatus('Reading file...', true);
+    resetBtn.style.display = 'inline-flex';
+
+    const arrayBuffer = await readFileAsArrayBuffer(file);
+    // downscale if needed
+    const workingBlob = await downscaleLargeIfNeeded(arrayBuffer);
+
+    // resize to target
+    const dpi = parseInt(dpiSelect.value, 10) || 300;
+    const { canvas, targetW, targetH } = await resizeToTargetCanvas(workingBlob, dpi);
+
+    // show intermediate preview (resized)
+    const resizedPreviewBlob = await canvasToBlob(canvas, 0.92);
+    const resizedUrl = URL.createObjectURL(resizedPreviewBlob);
+    resultImg.src = resizedUrl;
+    resultImg.style.display = 'block';
+    resultPlaceholder.style.display = 'none';
+    resultMeta.style.display = 'block';
+    resultMeta.textContent = `Resized: ${targetW}×${targetH} px`;
+
+    // compress to target bytes
+    const { blob: final, quality } = await compressToTarget(canvas);
+
+    // show final preview and enable download
+    finalBlob = final;
+    if (finalUrl) { URL.revokeObjectURL(finalUrl); finalUrl = null; }
+    finalUrl = URL.createObjectURL(finalBlob);
+    resultImg.src = finalUrl;
+    resultMeta.textContent = `Result: ${targetW}×${targetH} px • ${bytesToKb(finalBlob.size)} • quality ${(quality*100).toFixed(0)}%`;
+    downloadBtn.disabled = false;
+    setStatus('Ready — download your JPEG', false);
+  } catch (err) {
+    console.error(err);
+    setStatus('Error processing image: ' + (err.message || err), false);
+  }
+}
+
+// Initialize
+resetState();
+</script>
+</body>
+</html>
